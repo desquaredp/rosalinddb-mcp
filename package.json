@@ -1,16 +1,16 @@
 {
   "name": "@rosalinddb/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Model Context Protocol server for RosalindDB - a cost-optimized, object-storage-first vector search database.",
   "license": "Apache-2.0",
   "author": "RosalindDB contributors",
-  "homepage": "https://github.com/desquaredp/rosalinddb-mcp#readme",
+  "homepage": "https://github.com/rosalinddb/rosalinddb-mcp#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/desquaredp/rosalinddb-mcp.git"
+    "url": "git+https://github.com/rosalinddb/rosalinddb-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/desquaredp/rosalinddb-mcp/issues"
+    "url": "https://github.com/rosalinddb/rosalinddb-mcp/issues"
   },
   "keywords": [
     "mcp",
