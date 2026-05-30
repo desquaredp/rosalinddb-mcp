@@ -26,7 +26,7 @@ runs unauthenticated against an OSS-default backend. It contains no business
 logic of its own.
 
 The RosalindDB engine lives at
-[desquaredp/rosalinddb](https://github.com/desquaredp/rosalinddb).
+[rosalinddb/rosalinddb](https://github.com/rosalinddb/rosalinddb).
 Self-host it via `docker compose` and point this MCP at it.
 
 ## Tools
@@ -97,7 +97,7 @@ locally-launched MCP server.
 > **Pointing at a non-local instance?** Set `ROSALINDDB_API_URL` to its base
 > URL. If auth is on, also set `ROSALINDDB_API_KEY=rb_live_...`. The backend
 > lives at
-> [desquaredp/rosalinddb](https://github.com/desquaredp/rosalinddb).
+> [rosalinddb/rosalinddb](https://github.com/rosalinddb/rosalinddb).
 
 ## Local development
 

@@ -5,7 +5,7 @@
 If you believe you have found a security vulnerability in `@rosalinddb/mcp`,
 please report it privately via GitHub Security Advisories:
 
-https://github.com/desquaredp/rosalinddb-mcp/security/advisories/new
+https://github.com/rosalinddb/rosalinddb-mcp/security/advisories/new
 
 Please do **not** open a public issue, discussion, or pull request for
 suspected vulnerabilities. We will acknowledge your report and coordinate a
