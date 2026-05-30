@@ -29,130 +29,6 @@ The RosalindDB engine lives at
 [desquaredp/rosalinddb](https://github.com/desquaredp/rosalinddb).
 Self-host it via `docker compose` and point this MCP at it.
 
-## Install
-
-The server is `npx -y @rosalinddb/mcp` — no global install. Pick your MCP
-client below and paste the snippet. Then point `ROSALINDDB_API_URL` at
-your RosalindDB API (`http://localhost:8080` for a local
-`docker compose up` stack).
-
-**No API key is needed in OSS-default mode** (`RB_REQUIRE_AUTH=false`) —
-the snippets below are the whole config. If your backend has auth on,
-also set `ROSALINDDB_API_KEY=rb_live_...` in the `env` block (create a
-key via `POST /auth/keys`).
-
-### Claude Code
-
-```bash
-claude mcp add rosalinddb \
-  --env ROSALINDDB_API_URL=http://localhost:8080 \
-  -- npx -y @rosalinddb/mcp
-```
-
-Or by hand in `.mcp.json` at your project root:
-
-```json
-{
-  "mcpServers": {
-    "rosalinddb": {
-      "command": "npx",
-      "args": ["-y", "@rosalinddb/mcp"],
-      "env": {
-        "ROSALINDDB_API_URL": "http://localhost:8080"
-      }
-    }
-  }
-}
-```
-
-Run `/mcp` inside Claude Code to confirm the tools loaded.
-
-### Claude Desktop
-
-Add to `claude_desktop_config.json` — `~/Library/Application Support/Claude/`
-on macOS, `%APPDATA%\Claude\` on Windows:
-
-```json
-{
-  "mcpServers": {
-    "rosalinddb": {
-      "command": "npx",
-      "args": ["-y", "@rosalinddb/mcp"],
-      "env": {
-        "ROSALINDDB_API_URL": "http://localhost:8080"
-      }
-    }
-  }
-}
-```
-
-Then restart Claude Desktop.
-
-### Cursor
-
-Add to `~/.cursor/mcp.json` (applies everywhere) or
-`.cursor/mcp.json` in a project root:
-
-```json
-{
-  "mcpServers": {
-    "rosalinddb": {
-      "command": "npx",
-      "args": ["-y", "@rosalinddb/mcp"],
-      "env": {
-        "ROSALINDDB_API_URL": "http://localhost:8080"
-      }
-    }
-  }
-}
-```
-
-Cursor loads it automatically — check Settings → MCP.
-
-### VS Code
-
-Add to `.vscode/mcp.json` in your workspace. VS Code uses a `servers`
-key (not `mcpServers`) and a `type` field:
-
-```json
-{
-  "servers": {
-    "rosalinddb": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@rosalinddb/mcp"],
-      "env": {
-        "ROSALINDDB_API_URL": "http://localhost:8080"
-      }
-    }
-  }
-}
-```
-
-Start the server from the `mcp.json` editor or the MCP view.
-
-### Codex
-
-```bash
-codex mcp add rosalinddb \
-  --env ROSALINDDB_API_URL=http://localhost:8080 \
-  -- npx -y @rosalinddb/mcp
-```
-
-Or by hand in `~/.codex/config.toml` (or project-scoped
-`.codex/config.toml`):
-
-```toml
-[mcp_servers.rosalinddb]
-command = "npx"
-args = ["-y", "@rosalinddb/mcp"]
-
-[mcp_servers.rosalinddb.env]
-ROSALINDDB_API_URL = "http://localhost:8080"
-```
-
-Start a new Codex session — the rosalinddb tools load from `config.toml`.
-
 ## Tools
 
 | Tool             | RosalindDB endpoint                          | What it does |
@@ -194,6 +70,34 @@ The server reads two environment variables:
 When set, the key is sent as `Authorization: Bearer rb_live_...` on every
 request. A key that doesn't start with `rb_live_` triggers a startup warning
 but is not rejected (in case you front the backend with a custom auth proxy).
+
+## Wiring it into an MCP client
+
+Add this to your MCP client config (for Claude Desktop,
+`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "rosalinddb": {
+      "command": "npx",
+      "args": ["-y", "@rosalinddb/mcp"],
+      "env": {
+        "ROSALINDDB_API_URL": "http://localhost:8080"
+      }
+    }
+  }
+}
+```
+
+`npx -y @rosalinddb/mcp` downloads and runs the server on demand — no global
+install needed. The server speaks the stdio transport, the standard for a
+locally-launched MCP server.
+
+> **Pointing at a non-local instance?** Set `ROSALINDDB_API_URL` to its base
+> URL. If auth is on, also set `ROSALINDDB_API_KEY=rb_live_...`. The backend
+> lives at
+> [desquaredp/rosalinddb](https://github.com/desquaredp/rosalinddb).
 
 ## Local development
 

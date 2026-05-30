@@ -1,6 +1,6 @@
 {
   "name": "@rosalinddb/mcp",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "Model Context Protocol server for RosalindDB - a cost-optimized, object-storage-first vector search database.",
   "license": "Apache-2.0",
   "author": "RosalindDB contributors",
