@@ -12,6 +12,9 @@
  *   delete_dataset   -> DELETE /v1/datasets/{name}
  *   ingest_vectors   -> POST   /v1/datasets/{name}/vectors  (NDJSON)
  *   query_vectors    -> POST   /v1/query
+ *   get_vector       -> GET    /v1/datasets/{name}/vectors/{id}
+ *   list_vectors     -> GET    /v1/datasets/{name}/vectors
+ *   delete_vector    -> DELETE /v1/datasets/{name}/vectors/{id}
  *   get_usage        -> GET    /auth/usage
  *   list_api_keys    -> GET    /auth/keys
  */
@@ -104,6 +107,48 @@ export const queryVectorsSchema = z.object({
     ),
 });
 
+const vectorIdSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .describe("Vector record id, 1-256 chars.");
+
+export const getVectorSchema = z.object({
+  dataset: datasetNameSchema.describe("Dataset containing the vector."),
+  id: vectorIdSchema.describe("Id of the vector record to fetch."),
+  include_values: z
+    .boolean()
+    .optional()
+    .describe(
+      "If true, also return the stored embedding for a recall-resident vector " +
+        "(a consolidated/cold-only vector omits it).",
+    ),
+});
+
+export const listVectorsSchema = z.object({
+  dataset: datasetNameSchema.describe("Dataset to list vectors from."),
+  filter: z
+    .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .optional()
+    .describe("Optional flat metadata filter (exact-match AND-of-equals)."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .optional()
+    .describe("Max records to return in this page (server applies its own default)."),
+  cursor: z
+    .string()
+    .optional()
+    .describe("Opaque pagination cursor returned as next_cursor by a prior call."),
+});
+
+export const deleteVectorSchema = z.object({
+  dataset: datasetNameSchema.describe("Dataset containing the vector."),
+  id: vectorIdSchema.describe("Id of the vector record to delete."),
+});
+
 export const getUsageSchema = z.object({});
 
 export const listApiKeysSchema = z.object({});
@@ -155,10 +200,13 @@ export const TOOLS: ToolDef[] = [
   {
     name: "ingest_vectors",
     description:
-      "Ingest (upsert) vector records into a dataset. Each record needs an id, " +
-      "a values array matching the dataset dimension, and optional metadata. " +
-      "Records are queued for indexing; poll get_dataset for status. For very " +
-      "large dumps (>10 MiB) use the async import flow instead.",
+      "Ingest (upsert) vector records into a dataset (last-write-wins per id). Each " +
+      "record needs an id, a values array matching the dataset dimension, and optional " +
+      "flat metadata. The response reports accepted/rejected counts and per-record " +
+      "errors. Read-your-writes depends on the server's recall tier: if the result has " +
+      "NO job_id the write was synchronous and is immediately queryable; if it returns " +
+      "a job_id, indexing is asynchronous (eventually consistent) — poll get_dataset " +
+      "until status is 'indexed'. For dumps over ~10 MiB use the async import flow.",
     schema: ingestVectorsSchema,
     handler: (client, args) =>
       client.postNdjson(
@@ -169,9 +217,14 @@ export const TOOLS: ToolDef[] = [
   {
     name: "query_vectors",
     description:
-      "Run a vector similarity search against a dataset. Returns nearest " +
-      "neighbours sorted by L2 distance (lower score = closer; 0.0 is exact). " +
-      "Supports an optional flat metadata filter (exact-match AND semantics).",
+      "Run a vector similarity search against a dataset. Returns nearest neighbours " +
+      "sorted by L2 distance (lower score = closer; 0.0 is exact). The result 'mode' " +
+      "names the tier that answered: 'recall' = the read-your-writes recall tier; " +
+      "'hot'/'cold' = the consolidated object-storage tier ('hot' = shard already " +
+      "cached in memory, 'cold' = first fetch from object storage); 'ephemeral' = no " +
+      "shard yet (computed on demand). With the recall tier on, a just-ingested vector " +
+      "is immediately searchable (read-your-writes). Supports an optional flat metadata " +
+      "filter (exact-match AND semantics; run exhaustively server-side).",
     schema: queryVectorsSchema,
     handler: (client, args) => {
       const body: Record<string, unknown> = {
@@ -181,6 +234,57 @@ export const TOOLS: ToolDef[] = [
       if (args.top_k !== undefined) body.top_k = args.top_k;
       if (args.filter !== undefined) body.filter = args.filter;
       return client.postJson("/v1/query", body);
+    },
+  },
+  {
+    name: "get_vector",
+    description:
+      "Fetch a single vector record by id: its id and metadata. Set include_values=" +
+      "true to also return the stored embedding for a recall-resident vector (a " +
+      "consolidated/cold-only vector omits it even when requested — its absence is " +
+      "expected, not an error). Errors with not_found if the id is absent or deleted.",
+    schema: getVectorSchema,
+    handler: (client, args) => {
+      const base = `/v1/datasets/${encodeURIComponent(args.dataset)}/vectors/${encodeURIComponent(
+        args.id,
+      )}`;
+      return client.get(base + (args.include_values ? "?include_values=true" : ""));
+    },
+  },
+  {
+    name: "list_vectors",
+    description:
+      "List vector records (id + metadata) in a dataset, optionally filtered by a flat " +
+      "exact-match metadata filter, with a page limit and cursor. Returns { vectors, " +
+      "next_cursor }. Useful for enumerating or auditing the memories an agent has stored.",
+    schema: listVectorsSchema,
+    handler: (client, args) => {
+      const params = new URLSearchParams();
+      if (args.filter !== undefined) params.set("filter", JSON.stringify(args.filter));
+      if (args.limit !== undefined) params.set("limit", String(args.limit));
+      if (args.cursor !== undefined) params.set("cursor", args.cursor);
+      const qs = params.toString();
+      return client.get(
+        `/v1/datasets/${encodeURIComponent(args.dataset)}/vectors${qs ? `?${qs}` : ""}`,
+      );
+    },
+  },
+  {
+    name: "delete_vector",
+    description:
+      "Delete a single vector (memory) by id. With the recall tier on this is a " +
+      "synchronous tombstone — the vector is immediately gone from queries " +
+      "(read-your-deletes); otherwise it queues an async rebuild and returns a job_id. " +
+      "Deleting an unknown id is a clean no-op; a recall-tier failure surfaces as a " +
+      "retryable 503 (recall_delete_failed).",
+    schema: deleteVectorSchema,
+    handler: async (client, args) => {
+      const body = await client.deleteJson<{ job_id?: string } | undefined>(
+        `/v1/datasets/${encodeURIComponent(args.dataset)}/vectors/${encodeURIComponent(args.id)}`,
+      );
+      return body && body.job_id
+        ? { deleted: true, id: args.id, async: true, job_id: body.job_id }
+        : { deleted: true, id: args.id, synchronous: true };
     },
   },
   {

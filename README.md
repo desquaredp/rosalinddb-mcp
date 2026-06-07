@@ -37,13 +37,40 @@ Self-host it via `docker compose` and point this MCP at it.
 | `create_dataset` | `POST /v1/datasets`                          | Create a new empty dataset with a name and vector dimension. |
 | `get_dataset`    | `GET /v1/datasets/{name}`                    | Get one dataset's details and indexing status. |
 | `delete_dataset` | `DELETE /v1/datasets/{name}`                 | Delete a dataset and its vectors. |
-| `ingest_vectors` | `POST /v1/datasets/{name}/vectors` (NDJSON)  | Upsert vector records (id, values, optional metadata). |
-| `query_vectors`  | `POST /v1/query`                             | Vector similarity search with an optional flat metadata filter. |
+| `ingest_vectors` | `POST /v1/datasets/{name}/vectors` (NDJSON)  | Upsert vector records (id, values, optional metadata). Read-your-writes when the recall tier is on. |
+| `query_vectors`  | `POST /v1/query`                             | Vector similarity search with an optional flat metadata filter. Reports the serving tier in `mode`. |
+| `get_vector`     | `GET /v1/datasets/{name}/vectors/{id}`       | Fetch one vector's id + metadata (optionally its embedding). |
+| `list_vectors`   | `GET /v1/datasets/{name}/vectors`            | List/enumerate stored vectors (memories) with an optional filter. |
+| `delete_vector`  | `DELETE /v1/datasets/{name}/vectors/{id}`    | Delete one vector by id (read-your-deletes when the recall tier is on). |
 | `get_usage`      | `GET /auth/usage`                            | Current usage and quotas (vectors stored, queries today). |
 | `list_api_keys`  | `GET /auth/keys`                             | List the instance's API keys (metadata only). |
 
 For very large embedding dumps (over the 10 MiB `ingest_vectors` cap), use
 RosalindDB's async import-job flow directly via the REST API.
+
+## Recall tier (read-your-writes)
+
+RosalindDB can run an optional **recall tier** — a hot pgvector instance the
+server enables with `RB_RECALL` + `RB_RECALL_DSN`. It's transparent to this MCP
+(nothing to configure client-side), but it changes the behavior an agent sees:
+
+- **`ingest_vectors` is read-your-writes.** With recall on, an upsert is
+  synchronous (no `job_id` in the result) and the vector is **immediately**
+  returned by the next `query_vectors`. With recall off, ingest is eventually
+  consistent (returns a `job_id`) — poll `get_dataset` until `status` is
+  `indexed`.
+- **`delete_vector` is read-your-deletes.** With recall on, a delete is a
+  synchronous tombstone (`{ synchronous: true }`) and the vector is gone from
+  queries at once; with recall off it queues a rebuild (`{ async: true, job_id }`).
+- **`query_vectors` reports the serving tier in `mode`:** `recall` (the recall
+  tier), `hot`/`cold` (the consolidated object-storage tier — `hot` = shard
+  already cached in memory, `cold` = first fetch), or `ephemeral` (no shard yet,
+  computed on demand). Recall and consolidated results are unioned, with recall
+  authoritative for anything written since the last consolidation.
+
+This makes RosalindDB usable as agent working memory: store a fact and recall it
+on the very next turn. See the engine's
+[recall / consolidate docs](https://github.com/rosalinddb/rosalinddb/blob/main/docs/architecture/recall-consolidate.md).
 
 ## Auth modes
 
@@ -143,7 +170,9 @@ a raw stack trace. A 404 surfaces as "dataset does not exist — list datasets
 or create it first"; a 429 quota error explains the limit and how to recover;
 a 404 `auth_disabled` (calling `list_api_keys` against an OSS-default
 backend) explains that the auth endpoints are gated behind
-`RB_REQUIRE_AUTH=true`.
+`RB_REQUIRE_AUTH=true`; and a 503 `recall_write_failed` / `recall_delete_failed`
+/ `recall_unavailable` explains that the read-your-writes tier is momentarily
+down and the call should be retried.
 
 ## License
 
