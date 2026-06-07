@@ -83,6 +83,18 @@ export const ERROR_HINTS: Record<string, string> = {
   payload_too_large:
     "The ingest body exceeds the 10 MiB cap. Split it into smaller batches.",
   not_found: "The requested resource was not found for this account.",
+  recall_write_failed:
+    "The recall (read-your-writes) tier rejected the synchronous write, so it was NOT " +
+    "committed. Retry the ingest; if it persists, the server's recall pgvector instance " +
+    "(RB_RECALL_DSN) may be down.",
+  recall_unavailable:
+    "The recall (read-your-writes) tier is unavailable, so the query was refused rather " +
+    "than silently returning stale consolidated-only results. Retry shortly; if it " +
+    "persists, the server's recall instance may be down.",
+  recall_delete_failed:
+    "The recall (read-your-writes) tier failed to tombstone the vector, so it was NOT " +
+    "deleted. Retry; if it persists, the server's recall pgvector instance " +
+    "(RB_RECALL_DSN) may be down.",
 };
 
 /**

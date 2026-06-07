@@ -117,6 +117,21 @@ export class RosalindClient {
     });
     await this.handle<void>(res);
   }
+
+  /**
+   * DELETE an endpoint and return its parsed body (if any). Unlike `delete`,
+   * this surfaces the response so a caller can tell read-your-deletes apart from
+   * an async rebuild: a recall-on backend answers a single-vector delete with
+   * 204 (synchronous tombstone -> undefined), while a recall-off backend answers
+   * 202 with a `{ job_id }` body.
+   */
+  async deleteJson<T>(path: string): Promise<T> {
+    const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      method: "DELETE",
+      headers: { ...this.baseHeaders(), Accept: "application/json" },
+    });
+    return this.handle<T>(res);
+  }
 }
 
 export { RosalindApiError };

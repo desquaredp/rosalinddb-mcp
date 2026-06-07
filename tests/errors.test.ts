@@ -70,4 +70,17 @@ describe("RosalindApiError.toToolMessage", () => {
     expect(msg).toContain("RB_REQUIRE_AUTH=false");
     expect(msg).toContain("RB_REQUIRE_AUTH=true");
   });
+
+  it("gives a retry hint for the recall-tier 503 codes", () => {
+    for (const code of [
+      "recall_write_failed",
+      "recall_unavailable",
+      "recall_delete_failed",
+    ]) {
+      const msg = new RosalindApiError(503, code, "tier down").toToolMessage();
+      expect(msg).toContain(code);
+      expect(msg).toContain("recall");
+      expect(msg.toLowerCase()).toContain("retry");
+    }
+  });
 });
