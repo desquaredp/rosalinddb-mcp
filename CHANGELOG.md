@@ -18,8 +18,9 @@ Recall-tier (read-your-writes) support.
   - `delete_vector` — delete one vector by id. Reports a **synchronous tombstone**
     (`{ synchronous: true }`, read-your-deletes) when the recall tier is on, or
     `{ async: true, job_id }` when it is off (both also carry `deleted` + `id`).
-- Error hints for the recall tier: `recall_write_failed` and `recall_unavailable`
-  (HTTP 503 — the read-your-writes tier is momentarily down; retry).
+- Error hints for the recall tier: `recall_write_failed`, `recall_delete_failed`,
+  and `recall_unavailable` (HTTP 503 — the read-your-writes tier is momentarily
+  down; retry).
 
 ### Changed
 - `ingest_vectors` now documents **read-your-writes**: a synchronous write (no
